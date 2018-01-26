@@ -11,7 +11,10 @@
   "license": "ISC",
   "dependencies": {
     "@types/node": "^8.5.1",
+    "@types/node-telegram-bot-api": "^0.28.2",
     "@types/rx-lite": "^4.0.5",
+    "@types/sqlite3": "^3.1.1",
+    "@types/ws": "^4.0.0",
     "base-58": "0.0.1",
     "bignum": "^0.12.5",
     "blake2b": "^2.1.2",
@@ -25,6 +28,7 @@
     "leveldown": "^2.1.1",
     "levelup": "^2.0.1",
     "linq": "^3.0.9",
+    "node-telegram-bot-api": "^0.30.0",
     "node-uuid": "^1.4.8",
     "nodejs-websocket": "^1.7.1",
     "rx-lite": "^4.0.8",

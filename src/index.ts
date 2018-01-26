@@ -1,77 +1,75 @@
 import * as TelegramBot from 'node-telegram-bot-api'
-import * as WebSocket from 'ws'
 import { Database } from './Database'
+import { Text } from './Text';
+import { WavesNotifications } from './WavesNotifications';
 
 const db = Database()
 const token = '';
 const bot = new TelegramBot(token, { polling: true });
+const subscriptionRemove = 'subscription/remove/'
+const wn = WavesNotifications(() => db.getWallets())
 
-const ws = new WebSocket('ws://ws.wavesplatform.com/api');
-
-ws.on('open', async function open() {
-  const wallets = await db.getWallets()
-  wallets.forEach(w => ws.send(`{"op":"subscribe balance/${w}"}`))
-})
-
-ws.on('message', async function incoming(data) {
-  const json = JSON.parse(data.toString())
-  console.log(json)
-  if (json.op.indexOf('balance/') == 0) {
-    const address = json.op.substr(8)
-    const userId = await db.getUserId(address)
-
-    const msg = `New balance on ${address} -> ${json.msg['WAVES']}`
-    if(userId && userId.length > 0) {
-      bot.sendMessage(userId[0], msg)
-    }
-    console.log(msg)
+wn.onWalletBalanceChanged(async (address, balances) => {
+  const userIds = await db.getUserIds(address)
+  if (userIds && userIds.length > 0) {
+    userIds.forEach(async id => {
+      const user = await db.getUser(id)
+      bot.sendMessage(id, Text[user.language_code].balance_changed(address, balances['WAVES']))
+    })
   }
-
-  /*{\
-    "op" : "balance/3P31zvGdh6ai6JK6zZ18TjYzJsa1B83YPoj",
-      "msg" : {
-      "WAVES" : 1264213718872765,
- }
-)*/
-
 })
 
-bot.onText(new RegExp('\/wallet'), (msg, match) => {
-  const chatId = msg.chat.id
-  const resp = match[0]
+bot.on('message', async (msg) => {
+  const from = msg.from
+  const user = await db.addUser(from.id, from.is_bot == 'true' ? 1 : 0, from.first_name, from.last_name, from.username, from.language_code)
 
-  bot.sendMessage(chatId, 'Here are your wallets:', {
-    reply_markup: {
-      inline_keyboard: [
-        [
-          {
-            text: '(+) add wallet',
-            callback_data: 'add_wallet',
-          }
-        ]
-      ]
+  if (msg.text.startsWith('/help') || msg.text.startsWith('/start')) {
+    bot.sendMessage(from.id, Text[user.language_code].help)
+    return
+  }
+  if (msg.text.startsWith('3P')) {
+    const address = msg.text
+    db.addWallet(msg.text)
+    const isNew = await db.addSubscription(address, user.id)
+    if (isNew) {
+      wn.subscribeToWalletBalance(address)
+      bot.sendMessage(user.id, Text[user.language_code].wallet_added(address))
+    } else {
+      bot.sendMessage(user.id, Text[user.language_code].remove_wallet_question(address), {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: Text[user.language_code].button_yes,
+                callback_data: `${subscriptionRemove}${address}`,
+              },
+              {
+                text: Text[user.language_code].button_no,
+                callback_data: `remove/cancel`,
+              },
+            ]
+          ]
+        }
+      })
     }
-  })
+  }
+  else {
+    bot.sendMessage(user.id, Text[user.language_code].wrong_wallet)
+  }
 })
 
-bot.on('message', (msg) => {
-  const chatId = msg.chat.id;
-  console.log(msg)
-  db.addWallet(msg.text, chatId)
-  ws.send(`{"op":"subscribe balance/${msg.text}"}`)
-});
-
-bot.on('callback_query', callback => {
+bot.on('callback_query', async callback => {
   const id = callback.id
   const chatId = callback.message.chat.id
-  switch (callback.data) {
-    case 'add_wallet':
-      const r = 'Please send me your wallet address, for example: 3PBkqPd2chKH7uHViB3qkjKyYAJCSrsahbt'
-      bot.sendMessage(chatId, r)
-      bot.answerCallbackQuery({ callback_query_id: id, text: r })
-      break;
+  const user = await db.getUser(chatId)
 
-    default:
-      break;
+  if (callback.data.startsWith(subscriptionRemove)) {
+    const address = callback.data.substr(subscriptionRemove.length)
+    const isRemoved = await db.removeSubscription(address, user.id)
+    if (isRemoved) {
+      bot.sendMessage(user.id, Text[user.language_code].wallet_removed(address))
+    }
   }
+
+  bot.answerCallbackQuery({ callback_query_id: id, text: Text[user.language_code].done })
 })
