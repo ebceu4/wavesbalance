@@ -5,11 +5,11 @@ import { WavesNotifications } from './WavesNotifications'
 import * as uuid from 'uuid/v4'
 import * as WavesAPI from 'waves-api'
 import { validateAddress } from './WavesCrypto';
+import { Secret } from './Secret';
 
 
 const db = Database()
-const token = '382693323:AAF_5IRoDKfvMFguFAlELcqhsoZdqdeN3Yk';
-const bot = new TelegramBot(token, { polling: true });
+const bot = new TelegramBot(Secret.telegrammToken, { polling: true });
 const wn = WavesNotifications(() => db.getWallets())
 
 interface IDialogResult {
