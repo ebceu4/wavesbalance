@@ -1,13 +1,74 @@
 import * as TelegramBot from 'node-telegram-bot-api'
 import { Database } from './Database'
-import { Text } from './Text';
-import { WavesNotifications } from './WavesNotifications';
+import { Text } from './Text'
+import { WavesNotifications } from './WavesNotifications'
+import * as uuid from 'uuid/v4'
+import * as WavesAPI from 'waves-api'
+import { validateAddress } from './WavesCrypto';
+
 
 const db = Database()
-const token = '';
+const token = '382693323:AAF_5IRoDKfvMFguFAlELcqhsoZdqdeN3Yk';
 const bot = new TelegramBot(token, { polling: true });
-const subscriptionRemove = 'subscription/remove/'
 const wn = WavesNotifications(() => db.getWallets())
+
+interface IDialogResult {
+  code?: string,
+  notify: (text?: string) => void
+}
+const showDialog = (chatId: number, text: string, ...buttons: string[][]): Promise<IDialogResult> => new Promise(async (resolve, reject) => {
+
+  const codes = {}
+  let timeout
+
+  const clear = () => {
+    clearTimeout(timeout)
+    Object.keys(k => delete codes[k])
+  }
+
+  const inline_keyboard = [buttons.map(b => {
+    const id = uuid()
+    codes[id] = b[1]
+    return { text: b[0], callback_data: id }
+  })]
+
+  const message = await bot.sendMessage(chatId, text, {
+    reply_markup: { inline_keyboard }
+  })
+
+  const messageId = (<TelegramBot.Message>message).message_id
+  if (messageId) {
+    const handler = async (callback: TelegramBot.CallbackQuery) => {
+
+      if (callback.from.id != chatId)
+        return
+
+      const id = callback.id
+      const code = codes[callback.data]
+
+      if (code) {
+        const notify = (text?: string) => {
+          bot.answerCallbackQuery(callback.id, { text })
+        }
+        clear()
+        bot.removeListener('callback_query', handler)
+        bot.deleteMessage(chatId, messageId.toString())
+        resolve({ code, notify })
+      }
+    }
+
+    timeout = setTimeout(() => {
+      clear()
+      bot.removeListener('callback_query', handler)
+      bot.deleteMessage(chatId, messageId.toString())
+      resolve({ notify: (text?: any) => { } })
+    }, 20000)
+
+    bot.on('callback_query', handler)
+  } else {
+    reject(<Error>message)
+  }
+})
 
 wn.onWalletBalanceChanged(async (address, balances) => {
   const userIds = await db.getUserIds(address)
@@ -28,6 +89,10 @@ bot.on('message', async (msg) => {
     return
   }
   if (msg.text.startsWith('3P')) {
+    if (!validateAddress(msg.text)) {
+      bot.sendMessage(user.id, Text[user.language_code].address_not_valid)
+      return
+    }
     const address = msg.text
     db.addWallet(msg.text)
     const isNew = await db.addSubscription(address, user.id)
@@ -35,22 +100,26 @@ bot.on('message', async (msg) => {
       wn.subscribeToWalletBalance(address)
       bot.sendMessage(user.id, Text[user.language_code].wallet_added(address))
     } else {
-      bot.sendMessage(user.id, Text[user.language_code].remove_wallet_question(address), {
-        reply_markup: {
-          inline_keyboard: [
-            [
-              {
-                text: Text[user.language_code].button_yes,
-                callback_data: `${subscriptionRemove}${address}`,
-              },
-              {
-                text: Text[user.language_code].button_no,
-                callback_data: `remove/cancel`,
-              },
-            ]
-          ]
-        }
-      })
+      const result = await showDialog(user.id,
+        Text[user.language_code].remove_wallet_question(address),
+        [Text[user.language_code].button_yes, 'yes'],
+        [Text[user.language_code].button_no, 'no']
+      )
+
+      switch (result.code) {
+        case 'yes':
+          const isRemoved = await db.removeSubscription(address, user.id)
+          if (isRemoved)
+            bot.sendMessage(user.id, Text[user.language_code].wallet_removed)
+          result.notify(Text[user.language_code].wallet_removed)
+          break;
+        case 'no':
+          bot.sendMessage(user.id, Text[user.language_code].wallet_not_removed)
+          result.notify(Text[user.language_code].wallet_not_removed)
+          break;
+        default:
+          break;
+      }
     }
   }
   else {
@@ -58,18 +127,3 @@ bot.on('message', async (msg) => {
   }
 })
 
-bot.on('callback_query', async callback => {
-  const id = callback.id
-  const chatId = callback.message.chat.id
-  const user = await db.getUser(chatId)
-
-  if (callback.data.startsWith(subscriptionRemove)) {
-    const address = callback.data.substr(subscriptionRemove.length)
-    const isRemoved = await db.removeSubscription(address, user.id)
-    if (isRemoved) {
-      bot.sendMessage(user.id, Text[user.language_code].wallet_removed(address))
-    }
-  }
-
-  bot.answerCallbackQuery({ callback_query_id: id, text: Text[user.language_code].done })
-})
