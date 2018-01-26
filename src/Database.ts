@@ -108,7 +108,7 @@ export const Database = () => {
     }),
 
     addUser: ($id, $is_bot, $first_name, $last_name, $username, $language_code): Promise<IUser> =>
-      new Promise((resolve, reject) => {
+      new Promise(async (resolve, reject) => {
         const params = { $id, $is_bot, $first_name, $last_name, $username, $language_code }
         params.$language_code = new RegExp('ru', 'i').test(params.$language_code) ? 'ru' : 'en'
         db.run(`INSERT OR IGNORE INTO users (id, is_bot, first_name, last_name, username, language_code) VALUES ($id, $is_bot, $first_name, $last_name, $username, $language_code)`,
@@ -124,6 +124,23 @@ export const Database = () => {
               resolve({ id: $id, is_bot: $is_bot, first_name: $first_name, last_name: $last_name, username: $username, language_code: params.$language_code })
             }
           })
+      }),
+
+    updateUser: (user: IUser): Promise<IUser> =>
+      new Promise<IUser>((resolve, reject) => {
+        const sql = `UPDATE users SET is_bot = ${user.is_bot}, first_name = '${user.first_name}', last_name = '${user.last_name}', username = '${user.username}', language_code = '${user.language_code}' WHERE id = '${user.id}'`
+        console.log(sql)
+        db.run(sql, function (err) {
+          if (err) {
+            reject(err)
+          }
+          else {
+            if (this.changes && this.changes > 0) {
+              console.log(`USER UPDATED -> ${user.id}, language_code: ${user.language_code}`)
+            }
+            resolve(user)
+          }
+        })
       }),
 
     getUser: (id): Promise<IUser> =>

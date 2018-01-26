@@ -7,6 +7,10 @@ export const Text = {
     remove_wallet_question: (adderss) => `Хочешь перестать получать уведомления по кошельку: ${adderss}?`,
     button_yes: 'Да',
     button_no: 'Нет',
+    button_ru: 'Ru',
+    button_en: 'En',
+    language_change_question: 'Меняем язык?',
+    language_changed: (code) => `Язык изменен: ${code}`,
     wallet_removed: 'Уведомления отключены.',
     wallet_not_removed: 'Продолжаю слать уведомления.',
     address_not_valid: 'Похоже адрес неправильный, может это не waves? Попробуй проверить и повторить ;)'
@@ -19,6 +23,10 @@ export const Text = {
     remove_wallet_question: (adderss) => `Do you want to disable nofitications for: ${adderss}?`,
     button_yes: 'Yes',
     button_no: 'No',
+    button_ru: 'Ru',
+    button_en: 'En',
+    language_change_question: 'Choose language:',
+    language_changed: (code) => `Language changed: ${code}`,
     wallet_removed: 'Notifications disabled.',
     wallet_not_removed: 'Notifications remain enabled.',
     address_not_valid: 'It seems that address is not a valid one or maybe it`s not a waves wallet? Double-check everything and try again ;)'

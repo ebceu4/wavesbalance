@@ -82,10 +82,26 @@ wn.onWalletBalanceChanged(async (address, balances) => {
 
 bot.on('message', async (msg) => {
   const from = msg.from
-  const user = await db.addUser(from.id, from.is_bot == 'true' ? 1 : 0, from.first_name, from.last_name, from.username, from.language_code)
-
+  await db.addUser(from.id, from.is_bot == 'true' ? 1 : 0, from.first_name, from.last_name, from.username, from.language_code)
+  const user = await db.getUser(from.id)
   if (msg.text.startsWith('/help') || msg.text.startsWith('/start')) {
     bot.sendMessage(from.id, Text[user.language_code].help)
+    return
+  }
+  if (msg.text.startsWith('/language')) {
+    const result = await showDialog(user.id, Text[user.language_code].language_change_question,
+      [Text[user.language_code].button_en, 'en'],
+      [Text[user.language_code].button_ru, 'ru'],
+    )
+
+    if(result.code) {
+      user.language_code = result.code
+      await db.updateUser(user)
+      const m = Text[user.language_code].language_changed(user.language_code)
+      bot.sendMessage(user.id, m)
+      result.notify(m)
+    }
+
     return
   }
   if (msg.text.startsWith('3P')) {
