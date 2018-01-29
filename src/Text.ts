@@ -1,9 +1,10 @@
 export const Text = {
   ru: {
-    help: 'Я могу уведомлять тебя о изменениях баланса по твоим кошелькам. Пришли мне адрес waves кошелька (например: 3PBkqPd2chKH7uHViB3qkjKyYAJCSrsahbt) и ты начнешь получать уведомления о изменениях баланса.',
+    help: 'Я могу уведомлять тебя о изменениях баланса по кошелькам. Пришли мне адрес waves кошелька (например: 3PBkqPd2chKH7uHViB3qkjKyYAJCSrsahbt) и ты начнешь получать уведомления о изменениях баланса.',
     wallet_added: (address) => `Кошелек ${address} добавлен.`,
     balance_changed: (address, balance) => `Баланс изменился ${address} -> ${balance}`,
-    wrong_wallet: 'Нет никакого смысла в отправлять мне что - то помимо адреса waves кошелька, оставь это для Сири. Попробуй /help если что-то забыл.',
+    asset_balance_changed: (address, asset, balance) => `Баланс ${address} изменился: ${asset} -> ${balance}`,
+    wrong_wallet: (commands) => `Нет никакого смысла в отправлять мне что - то помимо адреса waves кошелька, оставь это для Сири.\nСписок команд: ${commands}.`,
     remove_wallet_question: (adderss) => `Хочешь перестать получать уведомления по кошельку: ${adderss}?`,
     button_yes: 'Да',
     button_no: 'Нет',
@@ -19,7 +20,8 @@ export const Text = {
     help: `Hey! I can notify you about balance changes of your wallets. Send me a waves wallet address (example: 3PBkqPd2chKH7uHViB3qkjKyYAJCSrsahbt) and I will start to notify you.`,
     wallet_added: (address) => `Wallet ${address} added.`,
     balance_changed: (address, balance) => `Balance changed ${address} -> ${balance}`,
-    wrong_wallet: 'There is no point of sending me something that is not a waves wallet address, keep it for Siri. Try /help in case you forgot something.',
+    asset_balance_changed: (address, asset, balance) => `Balance ${address} changed: ${asset} -> ${balance}`,
+    wrong_wallet: (commands) => `There is no point of sending me something that is not a waves wallet address, keep it for Siri.\nTry one of these: ${commands}.`,
     remove_wallet_question: (adderss) => `Do you want to disable nofitications for: ${adderss}?`,
     button_yes: 'Yes',
     button_no: 'No',

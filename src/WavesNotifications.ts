@@ -1,63 +1,76 @@
 import * as WebSocket from 'ws'
+import { Observable, IObservable } from 'rx-lite';
+import { IDictionary } from './Interfaces/IDictionary';
+import { IWalletBalances } from './Interfaces/IWalletBalances';
+import { getBalance } from './WavesAPI'
 
-export interface IDictionary<TValue> {
-  [key: string]: TValue
+export interface IWalletNotifications {
+  balances: IObservable<IWalletBalances>
+  addWallet: (address: string) => void
 }
 
-export interface IWavesNotifications {
-  subscribeToWalletBalance: (address: string) => void,
-  onWalletBalanceChanged: (handler: (address: string, balances: IDictionary<string>) => void) => void
-}
-
-export const WavesNotifications = (getWallets: () => Promise<string[]>): IWavesNotifications => {
-
+export const WavesNotifications = (getWallets: () => Promise<string[]>): IWalletNotifications => {
   let webSocket: { subscribe: (address: string) => void }
-  let balanceChangedHandler: (address: string, balances: IDictionary<string>) => void
 
-  const wsOpen = () => {
-    const ws = new WebSocket('ws://ws.wavesplatform.com/api');
-    let isConnected = false
+  const balances = Observable.create<IWalletBalances>(observer => {
 
-    ws.on('open', async function open() {
-      isConnected = true
-      console.log('CONNECTED -> wavesplatform.com/api')
-      const wallets = await getWallets()
-      wallets.forEach(w => webSocket.subscribe(w))
-    })
+    const wsOpen = () => {
+      const ws = new WebSocket('ws://ws.wavesplatform.com/api');
+      let isConnected = false
 
-    ws.on('close', (code, reason) => {
-      isConnected = false
-      console.log('DISCONNECTED -> wavesplatform.com/api')
-      ws.removeAllListeners()
-      webSocket = wsOpen()
-    })
+      ws.on('open', async function open() {
+        isConnected = true
+        console.log('CONNECTED -> wavesplatform.com/api')
+        const wallets = await getWallets()
+        wallets.forEach(async w => {
+          if (isConnected) {
+            webSocket.subscribe(w)
+            try {
+              const result = await getBalance(w)
+              observer.onNext(result)
+            } catch (error) {
+              
+            }
+          }
+        })
+      })
 
-    ws.on('message', async function incoming(data) {
-      const json = JSON.parse(data.toString())
-      if (json.op.indexOf('balance/') == 0) {
-        const address = json.op.substr(8)
-        if (balanceChangedHandler)
-          balanceChangedHandler(address, json.msg)
-      }
-    })
+      ws.on('close', (code, reason) => {
+        isConnected = false
+        console.log('DISCONNECTED -> wavesplatform.com/api')
+        ws.removeAllListeners()
+        webSocket = wsOpen()
+      })
 
-    return {
-      subscribe: address => {
-        if (isConnected)
-          ws.send(`{"op":"subscribe balance/${address}"}`)
+      ws.on('message', async function incoming(data) {
+        const json = JSON.parse(data.toString())
+        if (json.op.indexOf('balance/') == 0) {
+          const address = json.op.substr(8)
+          observer.onNext({ address, balances: json.msg })
+        }
+      })
+
+      return {
+        subscribe: async address => {
+          if (isConnected)
+            ws.send(`{"op":"subscribe balance/${address}"}`)
+
+            try {
+              const result = await getBalance(address)
+              observer.onNext(result)
+            } catch (error) {
+              
+            }
+        }
       }
     }
-  }
 
-  webSocket = wsOpen()
+    webSocket = wsOpen()
+  })
 
   return {
-    onWalletBalanceChanged: (handler) => {
-      balanceChangedHandler = handler
-    },
-    subscribeToWalletBalance: (address) => {
-      webSocket.subscribe(address)
+    balances, addWallet: (address: string) => {
+      if (webSocket) webSocket.subscribe(address)
     }
   }
 }
-

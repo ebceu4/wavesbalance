@@ -16,7 +16,7 @@ function hashChain(input: Uint8Array) {
   return keccak(blake(input));
 }
 
-export const validateAddress = (base58Address: string): boolean => {
+export const validateAddress = (base58Address: string) => {
   try {
     const addressBytes = base58.decode(base58Address)
     const version = addressBytes[0]
@@ -33,7 +33,7 @@ export const validateAddress = (base58Address: string): boolean => {
         return false
     }
     return true
-  } catch {
-    return false
+  } catch (ex) {
+
   }
 }
