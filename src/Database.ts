@@ -19,7 +19,6 @@ export interface IAssetBalance {
 
 export interface IDatabase {
   getWallets: () => Promise<string[]>
-  getUserIds: (address: string) => Promise<string[]>
   addWallet: ($address: string, $userId: string) => Promise<boolean>
   addSubscription: ($address, $userId) => Promise<boolean>
   removeSubscription: ($address, $userId) => Promise<boolean>
@@ -30,6 +29,7 @@ export interface IDatabase {
   getAsset: (id: string) => Promise<IAsset>
   updateBalance: ($address: string, $assetId: string, $balance: string) => Promise<{ $old: IAssetBalance, $new: IAssetBalance }>
   getUserSubscriptions: ($usedId: string) => Promise<ISubscription[]>
+  getAddressSubscriptions: ($address: string) => Promise<ISubscription[]>
   updateUserSubscription: (subscription: ISubscription) => Promise<{ $old: ISubscription, $new: ISubscription }>
 }
 
@@ -153,6 +153,7 @@ export const Database = (): IDatabase => {
     const where = id.map(c => `${c.substr(1)} = ${c}`).join(' and ')
     const p = {}
     id.forEach(c => p[c] = obj[c])
+
     const select = await dbGet(`SELECT * FROM ${table} WHERE ${where}`, x => x, p)
     if (!select) {
       await dbInsert(table, obj)
@@ -186,9 +187,6 @@ export const Database = (): IDatabase => {
   return {
     getWallets: (): Promise<string[]> =>
       dbSelect(`SELECT address FROM wallets`, x => x.address),
-
-    getUserIds: (address: string): Promise<string[]> =>
-      dbSelect(`SELECT userId FROM subscriptions WHERE address = '${address}'`, x => x.userId),
 
     addWallet: ($address: string, $userId: string): Promise<boolean> =>
       dbInsert(tables.wallets, { $address, $userId }, () => {
@@ -241,8 +239,11 @@ export const Database = (): IDatabase => {
     getUserSubscriptions: ($userId: string): Promise<ISubscription[]> =>
       dbSelect(`SELECT * FROM ${tables.subscriptions} WHERE userId = '${$userId}'`, x => x),
 
+    getAddressSubscriptions: ($address: string): Promise<ISubscription[]> =>
+      dbSelect(`SELECT * FROM ${tables.subscriptions} WHERE address = '${$address}' and disabled is not 1`, x => x),
+
     updateUserSubscription: (subscription: ISubscription): Promise<{ $old: ISubscription, $new: ISubscription }> =>
-      dbInsertOrReplace<ISubscription>(tables.balances, ['address', 'userId'], subscription),
+      dbInsertOrReplace<ISubscription>(tables.subscriptions, ['address', 'userId'], subscription),
 
   }
 }
