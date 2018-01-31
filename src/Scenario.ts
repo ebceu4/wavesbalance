@@ -11,8 +11,32 @@ import { IDictionary } from './Interfaces/IDictionary';
 const db = Database()
 const bot = new TelegramBot(Secret.telegrammToken, { polling: true });
 
-const page = {
-  onLoad() {
+interface IPageButtonResult {
 
+}
+
+const ClosePage: IPageButtonResult = {}
+const NavigateTo: (page: () => Promise<IPage>) => IPageButtonResult = () => { return {  } }
+
+interface IPageButton {
+  text: string,
+  onClick: () => Promise<IPageButtonResult>
+}
+
+interface IPage {
+  title: string
+  buttons: IPageButton[]
+}
+
+interface IPageContext {
+}
+
+const mainPage = async (): Promise<IPage> => {
+
+  return {
+    title: '',
+    buttons: [
+      { text: '', onClick: async () => NavigateTo(mainPage) }
+    ]
   }
 }
